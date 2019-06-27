@@ -32,10 +32,10 @@ import ch.idsia.tools.MarioAIOptions;
 
 public class MarioTeachingEnv implements Environment {
 	private static final long serialVersionUID = -6102052217492409393L;
-    double totalReward = -1;
+    public double totalReward = -1;
 
 	// Actions
-	public MarioEnvironment environment;
+	public MarioEnvironment marioEnv;
 	public static final ActionSet ACTION_SET = new ActionSet();	
 	public final static StateSet STATE_SET = new StateSet();
 	protected static LinkedHashMap <Action, String> ACTIONS = new LinkedHashMap<Action, String>();
@@ -64,6 +64,7 @@ public class MarioTeachingEnv implements Environment {
         }
 	}
 	public MarioTeachingEnv() {
+		marioEnv = MarioEnvironment.getInstance();
 	    MarioTeachingEnv.STATE_SET.add(new State (new double[] {0.0, 0.0}));
 	    MarioTeachingEnv.STATE_SET.add(new State (new double[] {1.0, 0.0}));
 	    MarioTeachingEnv.STATE_SET.add(new State (new double[] {0.0, 1.0}));
@@ -84,11 +85,11 @@ public class MarioTeachingEnv implements Environment {
    
     
     boolean isObstacleAhead(byte[][] scene, int posx, int posy, int radius) {
-    	boolean obstacle= false;
     	for (int i=0; i<radius; i++) {
-    	 obstacle= obstacle || isObstacle(scene,posx,posy); 
+    		if (isObstacle(scene,posx +i,posy))
+    			return true;
      }
-    	return obstacle;
+    	return false;
     }
     
     
@@ -100,41 +101,41 @@ public class MarioTeachingEnv implements Environment {
         return 0;
     }
 	
-
-	public double doAction(Action action, MarioEnvironment environment) {
+	@Override
+	public double doAction(Action action) {
 		// TODO Auto-generated method stub
-		 double rewardDiff = environment.getIntermediateReward() - totalReward;
-	     totalReward = environment.getIntermediateReward();
+		 double rewardDiff = marioEnv.getIntermediateReward() - totalReward;
+	     totalReward = marioEnv.getIntermediateReward();
 		return rewardDiff;
 	}
 
-
-	public State getState(MarioEnvironment environment) {
+	@Override
+	public State getState() {
 		// TODO Auto-generated method stub
 		if(isTerminalState()) {
 			return new State(new double[]{0.5, 0.5});
 		}
-		int[] pos = environment.getMarioEgoPos();
+		int[] pos = marioEnv.getMarioEgoPos();
 		int marioX = pos[0];
 		int marioY = pos[1];
-		byte[][] scene = environment.getMergedObservationZZ(1, 1);
+		byte[][] scene = marioEnv.getMergedObservationZZ(1, 1);
 		boolean ahead = isObstacleAhead(scene, marioX, marioY, 3);
-		boolean canJump = (!environment.isMarioOnGround() || environment.isMarioAbleToJump()) ? true : false;
+		boolean canJump = (marioEnv.isMarioOnGround() && marioEnv.isMarioAbleToJump()) ? true : false;
 		double doubleAhead=booleanToDouble(ahead);
 		double doubleJump=booleanToDouble(canJump);
 		State current_state= new State(new double[]{doubleAhead,doubleJump});
 		return current_state;
 	}
 
-
-	public boolean isTerminalState(MarioEnvironment environment) {
-		if(environment.isLevelFinished()) {
+	@Override
+	public boolean isTerminalState() {
+		if(marioEnv.isLevelFinished()) {
 			return true;
 		}
-		if(environment.getMarioStatus()==Mario.STATUS_DEAD){
+		if(marioEnv.getMarioStatus()==Mario.STATUS_DEAD){
 			return true;
 		}
-		if(environment.getTimeSpent()>100){
+		if(marioEnv.getTimeSpent()>100){
 			return true;
 		}
 		else {
@@ -153,5 +154,6 @@ public class MarioTeachingEnv implements Environment {
 		// TODO Auto-generated method stub
 		
 	}
+
 
 }

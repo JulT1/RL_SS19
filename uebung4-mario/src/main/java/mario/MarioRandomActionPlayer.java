@@ -128,7 +128,6 @@ public class MarioRandomActionPlayer {
 	        byte[][] scene = environment.getMergedObservationZZ(1, 1);
 	        // isObstacle(scene, x, y)
 	        // isGround (scene, x, y)
-	        System.out.print();
 	        //if (scene[y][x] == Sprite.KIND_GOOMBA ||
 			//	scene[y][x] == Sprite.KIND_SPIKY /* .... */) {
 	        

@@ -10,7 +10,6 @@ import org.hswgt.teachingbox.core.rl.policy.Policy;
 import org.hswgt.teachingbox.core.rl.env.State;
 import org.hswgt.teachingbox.core.rl.tabular.HashQFunction;
 
-import ch.idsia.benchmark.mario.environments.MarioEnvironment;
 import ch.idsia.tools.MarioAIOptions;
 
 
@@ -18,8 +17,8 @@ import ch.idsia.tools.MarioAIOptions;
 public class Main {
 
 	private static MarioAIOptions marioAIOptions;
-	private static MarioEnvironment environment = MarioEnvironment.getInstance();
-	
+	public static MarioTeachingEnv teachingEnv = new MarioTeachingEnv();
+
     private static int levelRandSeed = 1000;
 	private static Random randGen = new Random();
 	
@@ -32,7 +31,7 @@ public class Main {
 		marioAIOptions.setFlatLevel(false);
 		marioAIOptions.setBlocksCount(true);
 		marioAIOptions.setCoinsCount(true);
-		marioAIOptions.setLevelRandSeed(levelRandSeed); // comment out for random levels
+		//marioAIOptions.setLevelRandSeed(levelRandSeed); // comment out for random levels
 		marioAIOptions.setVisualization(true); // false: no visualization => faster learning
 		marioAIOptions.setGapsCount(false);
 		marioAIOptions.setMarioMode(2);
@@ -45,7 +44,7 @@ public class Main {
 	
 		
 		TeachingBoxAgent agentMario = new TeachingBoxAgent();
-
+		
 		marioAIOptions.setAgent(agentMario); 
 
 	
@@ -53,19 +52,17 @@ public class Main {
 		
 		
 		// reset environment
-	    environment = MarioEnvironment.getInstance();
-		environment.reset(marioAIOptions);
+	    teachingEnv.marioEnv.reset(marioAIOptions);
 		
 		// reset agent
 	    agentMario.setObservationDetails(
-	    		environment.getReceptiveFieldWidth(),
-	    		environment.getReceptiveFieldHeight(),
-	    		environment.getMarioEgoPos()[0],
-	    		environment.getMarioEgoPos()[1]);
+	    		teachingEnv.marioEnv.getReceptiveFieldWidth(),
+	    		teachingEnv.marioEnv.getReceptiveFieldHeight(),
+	    		teachingEnv.marioEnv.getMarioEgoPos()[0],
+	    		teachingEnv.marioEnv.getMarioEgoPos()[1]);
 	 
 		
 		
-		MarioTeachingEnv env = new MarioTeachingEnv();
 	    
 		// setup engine 
 		HashQFunction Q = new HashQFunction (0 ,MarioTeachingEnv.ACTION_SET);
@@ -84,9 +81,10 @@ public class Main {
 		
 		agentTeaching.addObserver(learner);
 		
-		State currentState = env.getState();
-		double totalReward = -1;
-		
+		//State currentState = teachingEnv.getState();
+		//System.out.println(currentState);
+		double rewardDiff =0;
+		agentTeaching.start(teachingEnv.getState());
 		
 	    // do some actions
 		for (int step=0; step<1000; step++) {
@@ -96,44 +94,45 @@ public class Main {
 		since we re enter the chosen action into the agent of the Mario API this is
 		probably unecessary.
 		*/
-			double rewardDiff = environment.getIntermediateReward() - totalReward;
-		    totalReward = environment.getIntermediateReward();
-			Action nextAction = agentTeaching.nextStep(currentState, rewardDiff, env.isTerminalState());
+			State currState = teachingEnv.getState();
+			System.out.println(currState);
+			Action nextAction = agentTeaching.nextStep(currState, rewardDiff, teachingEnv.isTerminalState());
+			rewardDiff = teachingEnv.doAction(nextAction);
+			
 			boolean[] marioAiAction = new boolean[ch.idsia.benchmark.mario.environments.Environment.numberOfKeys];
 			for (int i=0; i<ch.idsia.benchmark.mario.environments.Environment.numberOfKeys; i++) {
 				marioAiAction[i] = ((int)nextAction.get(0) & (1<<i)) > 0 ? true : false;
 			}
-			agentMario.setAction(marioAiAction);
-			
+
 			// perform action
-			environment.performAction(agentMario.getAction());
+			teachingEnv.marioEnv.performAction(marioAiAction);
 			marioAIOptions.setReceptiveFieldVisualized(true);
 			
 			// update environment
-	    	environment.tick();
-	        agentMario.integrateObservation(environment);	
+	    	teachingEnv.marioEnv.tick();
+	        agentMario.integrateObservation(teachingEnv.marioEnv);	
 	        
 	        // 1) reward
-	        System.out.println("  -> Reward: " + rewardDiff + " - totalReward=" + totalReward);
+	        System.out.println("  -> Reward: " + rewardDiff + " - totalReward=" + teachingEnv.totalReward);
 	        
 	        // 2) position
-	        float[] pos = environment.getMarioFloatPos();
+	        float[] pos = teachingEnv.marioEnv.getMarioFloatPos();
 	        float marioX = pos[0];
 	        float marioY = pos[1];
 	        System.out.println("  -> MarioPos: x=" + marioX + ", y=" + marioY);
 	        
 	        // 3) investigate scene for enemies/obstacles ...
-	        byte[][] scene = environment.getMergedObservationZZ(1, 1);
+	        byte[][] scene = teachingEnv.marioEnv.getMergedObservationZZ(1, 1);
 	        
 	        
 	        // 4) is mario able to jump?	   
-	        boolean canJump = (!environment.isMarioOnGround() || environment.isMarioAbleToJump()) ? true : false;
+	        boolean canJump = (!teachingEnv.marioEnv.isMarioOnGround() || teachingEnv.marioEnv.isMarioAbleToJump()) ? true : false;
 	        System.out.println("  -> canJump=" + canJump);
 	        
 	        // 5) Mario mode
-			boolean isMarioInvulnerable = environment.getMarioInvulnerableTime() > 0 ? true : false;
-			int marioMode = environment.getMarioMode();		
-			int marioStatus = environment.getMarioStatus();
+			boolean isMarioInvulnerable = teachingEnv.marioEnv.getMarioInvulnerableTime() > 0 ? true : false;
+			int marioMode = teachingEnv.marioEnv.getMarioMode();		
+			int marioStatus = teachingEnv.marioEnv.getMarioStatus();
 			System.out.println("  -> invulnerable=" + isMarioInvulnerable);
 			System.out.println("  -> MarioMode=" + marioMode);
 			System.out.println("  -> MarioStatus=" + marioStatus);
