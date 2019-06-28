@@ -5,29 +5,22 @@ import java.util.Vector;
 import java.util.Map.Entry;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.log4j.Logger;
-import org.hswgt.teachingbox.core.rl.datastructures.ActionFilter;
+
 import org.hswgt.teachingbox.core.rl.datastructures.ActionSet;
 import org.hswgt.teachingbox.core.rl.datastructures.StateSet;
 import org.hswgt.teachingbox.core.rl.env.Action;
 import org.hswgt.teachingbox.core.rl.env.Environment;
 import org.hswgt.teachingbox.core.rl.env.State;
-import org.hswgt.teachingbox.core.rl.gridworldeditor.gui.GridWorldGUI;
-import org.hswgt.teachingbox.core.rl.gridworldeditor.model.GridModel;
-import org.hswgt.teachingbox.core.rl.valuefunctions.QFunction;
-import org.objectweb.asm.tree.IntInsnNode;
 
-import redstone.xmlrpc.XmlRpcArray;
-import redstone.xmlrpc.XmlRpcClient;
-import redstone.xmlrpc.XmlRpcException;
-import redstone.xmlrpc.XmlRpcFault;
-import java.lang.Math;
-import org.hswgt.teachingbox.core.rl.datastructures.ActionSet;
-import org.hswgt.teachingbox.core.rl.env.Action;
-
-import ch.idsia.benchmark.mario.engine.GeneralizerLevelScene;
 import ch.idsia.benchmark.mario.engine.sprites.Mario;
 import ch.idsia.benchmark.mario.engine.sprites.Sprite;
+
+import java.lang.Math;
+
+import ch.idsia.benchmark.mario.engine.GeneralizerEnemies;
+import ch.idsia.benchmark.mario.engine.GeneralizerLevelScene;
+import ch.idsia.benchmark.mario.engine.sprites.Enemy;
+
 import ch.idsia.benchmark.mario.environments.MarioEnvironment;
 import ch.idsia.tools.MarioAIOptions;
 
@@ -70,6 +63,7 @@ public class MarioTeachingEnv implements Environment {
 	}
 	public MarioTeachingEnv() {
 		marioEnv = MarioEnvironment.getInstance();
+		//The loops here generate all possible binary like combinations of states of size STATE_SIZE, as a double array of course.
 		for (int i=0; i<Math.pow(2, STATE_SIZE); i++) {
 		    String currState= StringUtils.leftPad(Integer.toBinaryString(i), STATE_SIZE, '0');
 			double[] stateArr= new double[STATE_SIZE];
@@ -84,8 +78,11 @@ public class MarioTeachingEnv implements Environment {
 		switch(scene[y][x]) {
 			case GeneralizerLevelScene.BRICK:
 			case GeneralizerLevelScene.BORDER_CANNOT_PASS_THROUGH:
+			case GeneralizerLevelScene.BORDER_HILL:
 			case GeneralizerLevelScene.FLOWER_POT_OR_CANNON:
 			case GeneralizerLevelScene.LADDER:
+			case GeneralizerLevelScene.UNBREAKABLE_BRICK:
+			case Enemy.KIND_RED_KOOPA:
 			//System.out.println ("OBSTACLE: " + scene[y][x]);
 			return true;
 		}
@@ -113,14 +110,38 @@ public class MarioTeachingEnv implements Environment {
 	
 	@Override
 	public double doAction(Action action) {
-		// TODO Auto-generated method stub
+		boolean[] marioAiAction = new boolean[ch.idsia.benchmark.mario.environments.Environment.numberOfKeys];
+		for (int i=0; i<ch.idsia.benchmark.mario.environments.Environment.numberOfKeys; i++) {
+			marioAiAction[i] = ((int)action.get(0) & (1<<i)) > 0 ? true : false;
+		}
+		marioEnv.performAction(marioAiAction);
+		State currState= getState();
+		if (isTerminalState())
+			//rewards winning here
+			if (currState.get(0)==100.0)
+				//reward mario by how fast he finished the level
+				return marioEnv.getTimeLeft()*2;
+			else
+				return -50;
+
 		 double rewardDiff = marioEnv.getIntermediateReward() - totalReward;
 	     totalReward = marioEnv.getIntermediateReward();
-	     if (action.equals(ACTION_MAP.get("RIGHT"))) 
-	    	return 10.5;
+	     if (currState.get(2)>0.0)
+	    	return 5;
 	     else if (action.equals(ACTION_MAP.get("LEFT")))
 	    	return -1.5;
-	     return rewardDiff;
+	     else if (action.equals(ACTION_MAP.get("SPEEDRIGHT")))
+	    	 return 10;
+	     else if (action.equals(ACTION_MAP.get("SPEEDLEFT")))
+	    	 return -3;
+	     else if (currState.get(0) >0.0 && action.equals(ACTION_MAP.get("JUMP_RIGHT")))
+	    		 return 2;
+	     else if (currState.get(0) >0.0 && action.equals(ACTION_MAP.get("JUMP")))
+    		 return 1;
+	     else if (action.equals(ACTION_MAP.get("JUMP")) ||action.equals(ACTION_MAP.get("JUMP_BACK")) )
+	    	 //dont just jump around
+	    	 return -2;
+	     return 0;
 	}
 
 	@Override
@@ -128,18 +149,21 @@ public class MarioTeachingEnv implements Environment {
 		// TODO Auto-generated method stub
 		steps++;
 		if(isTerminalState()) {
-			return new State(new double[]{-1.0});
+			if (marioEnv.getMarioStatus() == MarioEnvironment.MARIO_STATUS_WIN) 
+				return new State(new double[]{100.0});
+			else if (marioEnv.getMarioStatus() == MarioEnvironment.MARIO_STATUS_DEAD) 
+				return new State(new double[]{101.0});
 		}
 		currFloatPos = marioEnv.getMarioFloatPos();
 		int[] currPos = marioEnv.getMarioEgoPos();
-		System.out.println(currPos[0]);
 		byte[][] scene = marioEnv.getMergedObservationZZ(1, 1);
-		boolean ahead = isObstacleAhead(scene, currPos, 3);
+		boolean ahead = isObstacleAhead(scene, currPos, 5);
 		boolean canJump = (marioEnv.isMarioOnGround() && marioEnv.isMarioAbleToJump()) ? true : false;
 		double doubleAhead=booleanToDouble(ahead);
 		double doubleJump=booleanToDouble(canJump);
 		double dirX = booleanToDouble(currFloatPos[0] > prevFloatPos[0]);
 		double dirY = booleanToDouble(currFloatPos[1] > prevFloatPos[1]);
+		//check if changed direction from a few steps ago. 
 		if (steps%5==0)
 			prevFloatPos=currFloatPos.clone();
 
