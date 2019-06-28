@@ -47,7 +47,7 @@ public class Main {
 		marioAIOptions.setTubesCount(false);
 		marioAIOptions.setLevelDifficulty(0);
 		//actually can be stopped after a level is finished as well, depends on what we want.
-		final int STEPS_PER_EPISODE=2000;
+		final int STEPS_PER_EPISODE=1000;
 		
 		TeachingBoxAgent agentMario = new TeachingBoxAgent();
 		
@@ -75,7 +75,7 @@ public class Main {
 		stepRewardPlotter.addScalarAverager(ra);
 		stepRewardPlotter.setTics(
 				new double[]{0, 10, STEPS_PER_EPISODE},  
-				new double[]{0.0, 0.1, 1.5}
+				new double[]{0.0, 0.1, 20}
 		);  
 		
 	    HashQFunction Q;
@@ -106,7 +106,7 @@ public class Main {
 		State startState = teachingEnv.getState();
 		agentTeaching.start(startState);
 		
-		Experiment experiment = new Experiment (agentTeaching, teachingEnv, 1, 300);
+		Experiment experiment = new Experiment (agentTeaching, teachingEnv, 1, STEPS_PER_EPISODE);
 		experiment.setInitState(startState);
 
 		experiment.addObserver(ra);
