@@ -116,7 +116,11 @@ public class MarioTeachingEnv implements Environment {
 		// TODO Auto-generated method stub
 		 double rewardDiff = marioEnv.getIntermediateReward() - totalReward;
 	     totalReward = marioEnv.getIntermediateReward();
-		return rewardDiff;
+	     if (action.equals(ACTION_MAP.get("RIGHT"))) 
+	    	return 10.5;
+	     else if (action.equals(ACTION_MAP.get("LEFT")))
+	    	return -1.5;
+	     return rewardDiff;
 	}
 
 	@Override
@@ -128,6 +132,7 @@ public class MarioTeachingEnv implements Environment {
 		}
 		currFloatPos = marioEnv.getMarioFloatPos();
 		int[] currPos = marioEnv.getMarioEgoPos();
+		System.out.println(currPos[0]);
 		byte[][] scene = marioEnv.getMergedObservationZZ(1, 1);
 		boolean ahead = isObstacleAhead(scene, currPos, 3);
 		boolean canJump = (marioEnv.isMarioOnGround() && marioEnv.isMarioAbleToJump()) ? true : false;

@@ -28,10 +28,10 @@ public class Main {
 	
 	public static void main(String[] args) {
 		marioAIOptions = new MarioAIOptions("");
-		marioAIOptions.setFlatLevel(false);
+		marioAIOptions.setFlatLevel(true);
 		marioAIOptions.setBlocksCount(true);
 		marioAIOptions.setCoinsCount(true);
-		//marioAIOptions.setLevelRandSeed(levelRandSeed); // comment out for random levels
+		marioAIOptions.setLevelRandSeed(levelRandSeed); // comment out for random levels
 		marioAIOptions.setVisualization(true); // false: no visualization => faster learning
 		marioAIOptions.setGapsCount(false);
 		marioAIOptions.setMarioMode(2);
@@ -87,7 +87,7 @@ public class Main {
 		agentTeaching.start(teachingEnv.getState());
 		
 	    // do some actions
-		for (int step=0; step<1000; step++) {
+		for (int step=0; step<100000; step++) {
 			
 			
 			/*This Block is supposed to choose the action it seems very messi 
@@ -97,7 +97,6 @@ public class Main {
 			State currState = teachingEnv.getState();
 			System.out.println(currState);
 			Action nextAction = agentTeaching.nextStep(currState, rewardDiff, teachingEnv.isTerminalState());
-			rewardDiff = teachingEnv.doAction(nextAction);
 			
 			boolean[] marioAiAction = new boolean[ch.idsia.benchmark.mario.environments.Environment.numberOfKeys];
 			for (int i=0; i<ch.idsia.benchmark.mario.environments.Environment.numberOfKeys; i++) {
@@ -106,6 +105,8 @@ public class Main {
 
 			// perform action
 			teachingEnv.marioEnv.performAction(marioAiAction);
+			rewardDiff = teachingEnv.doAction(nextAction);
+
 			marioAIOptions.setReceptiveFieldVisualized(true);
 			
 			// update environment
