@@ -4,6 +4,7 @@ import java.util.Random;
 import java.util.Vector;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.hswgt.teachingbox.core.rl.datastructures.ActionFilter;
 import org.hswgt.teachingbox.core.rl.datastructures.ActionSet;
@@ -14,13 +15,13 @@ import org.hswgt.teachingbox.core.rl.env.State;
 import org.hswgt.teachingbox.core.rl.gridworldeditor.gui.GridWorldGUI;
 import org.hswgt.teachingbox.core.rl.gridworldeditor.model.GridModel;
 import org.hswgt.teachingbox.core.rl.valuefunctions.QFunction;
+import org.objectweb.asm.tree.IntInsnNode;
 
 import redstone.xmlrpc.XmlRpcArray;
 import redstone.xmlrpc.XmlRpcClient;
 import redstone.xmlrpc.XmlRpcException;
 import redstone.xmlrpc.XmlRpcFault;
-
-
+import java.lang.Math;
 import org.hswgt.teachingbox.core.rl.datastructures.ActionSet;
 import org.hswgt.teachingbox.core.rl.env.Action;
 
@@ -33,9 +34,13 @@ import ch.idsia.tools.MarioAIOptions;
 public class MarioTeachingEnv implements Environment {
 	private static final long serialVersionUID = -6102052217492409393L;
     public double totalReward = -1;
+    float[] prevFloatPos,currFloatPos;
 
+
+    int steps=0;
 	// Actions
 	public MarioEnvironment marioEnv;
+	public static final int STATE_SIZE = 4;	
 	public static final ActionSet ACTION_SET = new ActionSet();	
 	public final static StateSet STATE_SET = new StateSet();
 	protected static LinkedHashMap <Action, String> ACTIONS = new LinkedHashMap<Action, String>();
@@ -65,10 +70,15 @@ public class MarioTeachingEnv implements Environment {
 	}
 	public MarioTeachingEnv() {
 		marioEnv = MarioEnvironment.getInstance();
-	    MarioTeachingEnv.STATE_SET.add(new State (new double[] {0.0, 0.0}));
-	    MarioTeachingEnv.STATE_SET.add(new State (new double[] {1.0, 0.0}));
-	    MarioTeachingEnv.STATE_SET.add(new State (new double[] {0.0, 1.0}));
-	    MarioTeachingEnv.STATE_SET.add(new State (new double[] {1.0, 1.0}));
+		for (int i=0; i<Math.pow(2, STATE_SIZE); i++) {
+		    String currState= StringUtils.leftPad(Integer.toBinaryString(i), STATE_SIZE, '0');
+			double[] stateArr= new double[STATE_SIZE];
+		    for (int j=0; j<STATE_SIZE; j++) {
+				stateArr[j]=Character.getNumericValue(currState.charAt(j))+0.0;
+			}
+			MarioTeachingEnv.STATE_SET.add(new State(stateArr));
+		}
+		currFloatPos=prevFloatPos= new float[]{(float)0.0, (float)0.0};
 	}
 	private static boolean isObstacle(byte[][] scene, int x, int y) {
 		switch(scene[y][x]) {
@@ -84,9 +94,9 @@ public class MarioTeachingEnv implements Environment {
 	
    
     
-    boolean isObstacleAhead(byte[][] scene, int posx, int posy, int radius) {
+    boolean isObstacleAhead(byte[][] scene, int pos[], int radius) {
     	for (int i=0; i<radius; i++) {
-    		if (isObstacle(scene,posx +i,posy))
+    		if (isObstacle(scene,pos[0] +i,pos[1]))
     			return true;
      }
     	return false;
@@ -112,18 +122,25 @@ public class MarioTeachingEnv implements Environment {
 	@Override
 	public State getState() {
 		// TODO Auto-generated method stub
+		steps++;
 		if(isTerminalState()) {
-			return new State(new double[]{0.5, 0.5});
+			return new State(new double[]{-1.0});
 		}
-		int[] pos = marioEnv.getMarioEgoPos();
-		int marioX = pos[0];
-		int marioY = pos[1];
+		currFloatPos = marioEnv.getMarioFloatPos();
+		int[] currPos = marioEnv.getMarioEgoPos();
 		byte[][] scene = marioEnv.getMergedObservationZZ(1, 1);
-		boolean ahead = isObstacleAhead(scene, marioX, marioY, 3);
+		boolean ahead = isObstacleAhead(scene, currPos, 3);
 		boolean canJump = (marioEnv.isMarioOnGround() && marioEnv.isMarioAbleToJump()) ? true : false;
 		double doubleAhead=booleanToDouble(ahead);
 		double doubleJump=booleanToDouble(canJump);
-		State current_state= new State(new double[]{doubleAhead,doubleJump});
+		double dirX = booleanToDouble(currFloatPos[0] > prevFloatPos[0]);
+		double dirY = booleanToDouble(currFloatPos[1] > prevFloatPos[1]);
+		if (steps%5==0)
+			prevFloatPos=currFloatPos.clone();
+
+
+
+		State current_state= new State(new double[]{doubleAhead,doubleJump,dirX,dirY});
 		return current_state;
 	}
 
