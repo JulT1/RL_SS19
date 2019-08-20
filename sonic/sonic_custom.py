@@ -88,7 +88,7 @@ def main():
     print(states)
     #state="GreenHillZone.Act1"
     state = np.random.choice(states,1)[0]
-    env = retro.make(game, state, record='./log')
+    env = retro.make(game, state, record='logs/')
     #env = AllowBacktracking(make(game, state)) #contest version
     env = SonicDiscretizer(env) #contest version
     print(game,'-',state)
@@ -161,7 +161,7 @@ def main():
                 game = np.random.choice(games,1)[0]
                 state = np.random.choice(retro.data.list_states(game),1)[0]
                 print("Playing",game,"-",state)
-                env = AllowBacktracking(retro.make(game, state, record="./log"))
+                env = AllowBacktracking(retro.make(game, state, record="logs/"))
                 #env = AllowBacktracking(make(game, state)) #contest version
                 env = SonicDiscretizer(env) #contest version
                 obs = env.reset() #game start
